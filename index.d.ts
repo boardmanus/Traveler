@@ -54,6 +54,8 @@ interface TravelData {
     prevY: number;
     stuck: number;
     cpu: number;
+    numRepaths?: number;
+    numTravelTo?: number;
     destX: number;
     destY: number;
     roomName: string;
@@ -66,6 +68,8 @@ interface TravelState {
   lastCoord: Coord;
   destination: RoomPosition;
   cpu: number;
+  numRepaths: number;
+  numTravelTo: number;
 }
 
 interface Creep {

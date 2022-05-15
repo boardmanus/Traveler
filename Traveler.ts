@@ -51,8 +51,12 @@ export class Traveler {
 
     // initialize data object
     const travelData: TravelData = creep.memory._trav ?? {};
+    creep.memory._trav = travelData;
 
     const state = this.deserializeState(travelData, destination);
+
+    // Indicate an invocation of travelTo occurred
+    ++state.numTravelTo;
 
     // uncomment to visualize destination
     // this.circle(destination, "orange");
@@ -109,20 +113,21 @@ export class Traveler {
 
       const cpu = Game.cpu.getUsed();
       const ret = this.findTravelPath(creep.pos, destination, options);
-
       const cpuUsed = Game.cpu.getUsed() - cpu;
       state.cpu = _.round(cpuUsed + state.cpu);
+      ++state.numRepaths;
+
       if (state.cpu > REPORT_CPU_THRESHOLD) {
         // see note at end of file for more info on this
         console.log(
-          `TRAVELER: heavy cpu use: ${creep.name}, cpu: ${state.cpu} origin: ${creep.pos}, dest: ${destination}`
+          `TRAVELER: heavy cpu for ${creep.name}: cpu=${state.cpu},numRepaths=${state.numRepaths},numTravelTo=${state.numTravelTo},${creep.pos}=>${destination}`
         );
       }
 
       let color = 'orange';
       if (ret.incomplete) {
         // uncommenting this is a great way to diagnose creep behavior issues
-        // console.log(`TRAVELER: incomplete path for ${creep.name}`);
+        console.log(`TRAVELER: incomplete path for ${creep.name}: ${creep.pos}=>${destination}`);
         color = 'red';
       }
 
@@ -305,7 +310,7 @@ export class Traveler {
       let matrix: CostMatrix | undefined;
       const room = Game.rooms[roomName];
       if (!room) {
-        return false;
+        return new PathFinder.CostMatrix();
       }
       if (options.ignoreStructures) {
         matrix = new PathFinder.CostMatrix();
@@ -343,7 +348,7 @@ export class Traveler {
 
     let ret = PathFinder.search(
       origin,
-      { pos: destination, range: options.range! },
+      { pos: destination, range: options.range ?? 1 },
       {
         maxOps: options.maxOps,
         maxRooms: options.maxRooms,
@@ -713,10 +718,14 @@ export class Traveler {
     if (travelData.state) {
       state.lastCoord = { x: travelData.state.prevX, y: travelData.state.prevY };
       state.cpu = travelData.state.cpu;
+      state.numRepaths = travelData.state.numRepaths ?? 0;
+      state.numTravelTo = travelData.state.numRepaths ?? 0;
       state.stuckCount = travelData.state.stuck;
       state.destination = new RoomPosition(travelData.state.destX, travelData.state.destY, travelData.state.roomName);
     } else {
       state.cpu = 0;
+      state.numRepaths = 0;
+      state.numTravelTo = 0;
       state.destination = destination;
     }
     return state;
@@ -728,6 +737,8 @@ export class Traveler {
       prevY: creep.pos.y,
       stuck: state.stuckCount,
       cpu: state.cpu,
+      numRepaths: state.numRepaths,
+      numTravelTo: state.numTravelTo,
       destX: destination.x,
       destY: destination.y,
       roomName: destination.roomName
@@ -752,7 +763,7 @@ export class Traveler {
 
 // this might be higher than you wish, setting it lower is a great way to diagnose creep behavior issues. When creeps
 // need to repath to often or they aren't finding valid paths, it can sometimes point to problems elsewhere in your code
-const REPORT_CPU_THRESHOLD = 1000;
+const REPORT_CPU_THRESHOLD = 100; //1000;
 
 const DEFAULT_MAXOPS = 20000;
 const DEFAULT_STUCK_VALUE = 2;
