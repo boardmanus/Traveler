@@ -21,6 +21,10 @@ export class Traveler {
     // uncomment if you would like to register hostile rooms entered
     this.updateRoomStatus(creep.room);
 
+    if (creep.spawning) {
+      return ERR_BUSY;
+    }
+
     if (!destPos) {
       return ERR_INVALID_ARGS;
     }
@@ -83,7 +87,7 @@ export class Traveler {
 
     // delete path cache if destination is different
     if (!this.samePos(state.destination, destination)) {
-      if (options.movingTarget && state.destination.isNearTo(destination)) {
+      if (state.destination.isNearTo(destination)) {
         const dir = state.destination.getDirectionTo(destination);
         if (travelData.path) {
           travelData.path += dir;
@@ -105,10 +109,6 @@ export class Traveler {
     let newPath = false;
     if (!travelData.path) {
       newPath = true;
-      if (creep.spawning) {
-        return ERR_BUSY;
-      }
-
       state.destination = destination;
 
       const cpu = Game.cpu.getUsed();
@@ -117,10 +117,15 @@ export class Traveler {
       state.cpu = _.round(cpuUsed + state.cpu);
       ++state.numRepaths;
 
-      if (state.cpu > REPORT_CPU_THRESHOLD) {
+      const age = creep.age();
+      const cpuPerLifeTick = state.cpu / age;
+      const repathRatio = state.numRepaths / state.numTravelTo;
+      if (age > 20 && (cpuPerLifeTick > REPORT_MAX_CPU_PER_LIFETICK || repathRatio > REPORT_MAX_REPATH_RATIO)) {
         // see note at end of file for more info on this
         console.log(
-          `TRAVELER: heavy cpu for ${creep.name}: cpu=${state.cpu},numRepaths=${state.numRepaths},numTravelTo=${state.numTravelTo},${creep.pos}=>${destination}`
+          `TRAVELER: heavy cpu for ${creep.name}: cpu=${state.cpu}/${age}=${cpuPerLifeTick.toFixed(2)},repathRatio=${
+            state.numRepaths
+          }/${state.numTravelTo}=${repathRatio.toFixed(2)},${creep.pos}=>${destination}`
         );
       }
 
@@ -457,7 +462,7 @@ export class Traveler {
     });
 
     if (!_.isArray(ret)) {
-      console.log(`couldn't findRoute to ${destination}`);
+      console.log(`TRAVELER: couldn't findRoute to ${destination}`);
       return;
     }
     for (const value of ret) {
@@ -719,7 +724,7 @@ export class Traveler {
       state.lastCoord = { x: travelData.state.prevX, y: travelData.state.prevY };
       state.cpu = travelData.state.cpu;
       state.numRepaths = travelData.state.numRepaths ?? 0;
-      state.numTravelTo = travelData.state.numRepaths ?? 0;
+      state.numTravelTo = travelData.state.numTravelTo ?? 0;
       state.stuckCount = travelData.state.stuck;
       state.destination = new RoomPosition(travelData.state.destX, travelData.state.destY, travelData.state.roomName);
     } else {
@@ -763,8 +768,8 @@ export class Traveler {
 
 // this might be higher than you wish, setting it lower is a great way to diagnose creep behavior issues. When creeps
 // need to repath to often or they aren't finding valid paths, it can sometimes point to problems elsewhere in your code
-const REPORT_CPU_THRESHOLD = 100; //1000;
-
+const REPORT_MAX_CPU_PER_LIFETICK = 0.25;
+const REPORT_MAX_REPATH_RATIO = 0.2;
 const DEFAULT_MAXOPS = 20000;
 const DEFAULT_STUCK_VALUE = 2;
 
