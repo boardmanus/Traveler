@@ -768,8 +768,8 @@ export class Traveler {
 
 // this might be higher than you wish, setting it lower is a great way to diagnose creep behavior issues. When creeps
 // need to repath to often or they aren't finding valid paths, it can sometimes point to problems elsewhere in your code
-const REPORT_MAX_CPU_PER_LIFETICK = 0.25;
-const REPORT_MAX_REPATH_RATIO = 0.2;
+const REPORT_MAX_CPU_PER_LIFETICK = 0.11;
+const REPORT_MAX_REPATH_RATIO = 0.21;
 const DEFAULT_MAXOPS = 20000;
 const DEFAULT_STUCK_VALUE = 2;
 
